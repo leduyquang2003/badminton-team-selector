@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Zap, Users, UserCheck, Trash2 } from 'lucide-react';
+import { Shuffle, Zap, Users, UserCheck, Trash2, Menu, X } from 'lucide-react';
 import { Player, Team, GameResult, AppState, SkillLevel } from './types';
 import { generateBalancedTeams, calculateTeamStrength } from './utils/gameLogic';
 import AddPlayerForm from './components/AddPlayerForm';
@@ -18,6 +18,10 @@ import {
   SecondaryButton,
   NavContainer,
   NavButton,
+  MobileNavContainer,
+  MobileMenuOverlay,
+  HamburgerButton,
+  MobileNavButton,
   EmptyState,
   TeamGenerationContainer,
   GeneratingText,
@@ -35,6 +39,7 @@ function App() {
 
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [isGeneratingTeams, setIsGeneratingTeams] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -284,35 +289,106 @@ function App() {
       ...prevState,
       currentScreen: screen
     }));
+    setIsMobileMenuOpen(false); // Close mobile menu when navigating
   };
 
   const renderNavigation = () => (
-    <NavContainer>
-      <NavButton 
-        $active={appState.currentScreen === 'lobby'}
-        onClick={() => navigateToScreen('lobby')}
-      >
-        <Users size={16} style={{ marginRight: '0.5rem' }} />
-        Lobby
-      </NavButton>
-      
-      {appState.teams.length > 0 && (
+    <>
+      {/* Desktop Navigation */}
+      <NavContainer>
         <NavButton 
-          $active={appState.currentScreen === 'teams'}
-          onClick={() => navigateToScreen('teams')}
+          $active={appState.currentScreen === 'lobby'}
+          onClick={() => navigateToScreen('lobby')}
         >
-          <UserCheck size={16} style={{ marginRight: '0.5rem' }} />
-          Current Teams
+          <Users size={16} style={{ marginRight: '0.5rem' }} />
+          Lobby
         </NavButton>
-      )}
-      
-      <NavButton 
-        $active={appState.currentScreen === 'history'}
-        onClick={() => navigateToScreen('history')}
-      >
-        📊 Game History ({appState.gameHistory.length})
-      </NavButton>
-    </NavContainer>
+        
+        {appState.teams.length > 0 && (
+          <NavButton 
+            $active={appState.currentScreen === 'teams'}
+            onClick={() => navigateToScreen('teams')}
+          >
+            <UserCheck size={16} style={{ marginRight: '0.5rem' }} />
+            Current Teams
+          </NavButton>
+        )}
+        
+        <NavButton 
+          $active={appState.currentScreen === 'history'}
+          onClick={() => navigateToScreen('history')}
+        >
+          📊 Game History ({appState.gameHistory.length})
+        </NavButton>
+      </NavContainer>
+
+      {/* Mobile Menu Overlay */}
+      <MobileMenuOverlay 
+        $isOpen={isMobileMenuOpen}
+        onClick={() => setIsMobileMenuOpen(false)}
+      />
+
+      {/* Mobile Navigation Menu */}
+      <MobileNavContainer $isOpen={isMobileMenuOpen}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <h3 style={{ color: '#667eea', margin: 0 }}>Menu</h3>
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#667eea',
+              cursor: 'pointer',
+              padding: '0.5rem',
+              borderRadius: '5px'
+            }}
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <MobileNavButton 
+          $active={appState.currentScreen === 'lobby'}
+          onClick={() => navigateToScreen('lobby')}
+        >
+          <Users size={16} style={{ marginRight: '0.5rem' }} />
+          Lobby
+        </MobileNavButton>
+        
+        {appState.teams.length > 0 && (
+          <MobileNavButton 
+            $active={appState.currentScreen === 'teams'}
+            onClick={() => navigateToScreen('teams')}
+          >
+            <UserCheck size={16} style={{ marginRight: '0.5rem' }} />
+            Current Teams
+          </MobileNavButton>
+        )}
+        
+        <MobileNavButton 
+          $active={appState.currentScreen === 'history'}
+          onClick={() => navigateToScreen('history')}
+        >
+          📊 Game History ({appState.gameHistory.length})
+        </MobileNavButton>
+
+        {appState.players.length > 0 && (
+          <MobileNavButton 
+            $active={false}
+            onClick={clearAllData}
+            style={{ 
+              backgroundColor: '#ff6b6b', 
+              borderColor: '#ff6b6b',
+              color: 'white',
+              marginTop: '2rem'
+            }}
+          >
+            <Trash2 size={16} style={{ marginRight: '0.5rem' }} />
+            Clear All Data
+          </MobileNavButton>
+        )}
+      </MobileNavContainer>
+    </>
   );
 
   const renderLobby = () => (
@@ -474,8 +550,8 @@ function App() {
 
   const renderHistory = () => (
     <Card>
-      <h3 style={{ marginBottom: '2rem', color: '#333' }}>Game History</h3>
-      
+      <h3 style={{ marginBottom: '2rem', color: '#333', zIndex: 1 }}>Game History</h3>
+
       {appState.gameHistory.length === 0 ? (
         <EmptyState>
           <h3>No games played yet</h3>
@@ -573,6 +649,8 @@ function App() {
         <Title>
           🏸 Badminton Team Selector
         </Title>
+        
+        {/* Desktop Navigation and Clear Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {renderNavigation()}
           {appState.players.length > 0 && (
@@ -592,6 +670,11 @@ function App() {
             </SecondaryButton>
           )}
         </div>
+
+        {/* Mobile Hamburger Button */}
+        <HamburgerButton onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu size={24} />
+        </HamburgerButton>
       </Header>
 
       <MainContent>

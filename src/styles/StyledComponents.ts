@@ -56,6 +56,17 @@ export const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 1000;
+  
+  /* Hide Clear All button on mobile */
+  > div:first-of-type {
+    @media (max-width: 768px) {
+      > button:last-child {
+        display: none;
+      }
+    }
+  }
 `;
 
 export const Title = styled.h1`
@@ -72,6 +83,8 @@ export const MainContent = styled.main`
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 `;
 
 // Button Components
@@ -220,6 +233,8 @@ export const FormContainer = styled.div`
   padding: 2rem;
   margin-bottom: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 1;
 `;
 
 export const FormGroup = styled.div`
@@ -295,6 +310,87 @@ export const CheckboxDescription = styled.div`
 export const NavContainer = styled.nav`
   display: flex;
   gap: 1rem;
+  
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+export const MobileNavContainer = styled.div<{ $isOpen: boolean }>`
+  position: fixed;
+  top: 0;
+  left: ${props => props.$isOpen ? '0' : '-100%'};
+  width: 80%;
+  max-width: 300px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  z-index: 1001;
+  padding: 2rem 1rem;
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+  transition: left 0.3s ease;
+  
+  display: none;
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
+export const MobileMenuOverlay = styled.div<{ $isOpen: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  opacity: ${props => props.$isOpen ? 1 : 0};
+  visibility: ${props => props.$isOpen ? 'visible' : 'hidden'};
+  transition: all 0.3s ease;
+  
+  display: none;
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
+export const HamburgerButton = styled.button`
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 5px;
+  display: none;
+  
+  &:hover {
+    background: rgba(102, 126, 234, 0.1);
+  }
+  
+  @media (max-width: 768px) {
+    display: block;
+  }
+`;
+
+export const MobileNavButton = styled.button<{ $active: boolean }>`
+  background: ${props => props.$active ? '#667eea' : 'transparent'};
+  color: ${props => props.$active ? 'white' : '#667eea'};
+  border: 2px solid #667eea;
+  padding: 0.75rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  
+  &:hover {
+    background: #667eea;
+    color: white;
+  }
 `;
 
 export const NavButton = styled.button<{ $active: boolean }>`
