@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Zap, Users, UserCheck } from 'lucide-react';
+import { Shuffle, Zap, Users, UserCheck, Trash2 } from 'lucide-react';
 import { Player, Team, GameResult, AppState, SkillLevel } from './types';
 import { generateBalancedTeams, calculateTeamStrength } from './utils/gameLogic';
 import AddPlayerForm from './components/AddPlayerForm';
@@ -260,6 +260,23 @@ function App() {
       teams: []
     }));
     setSelectedPlayers([]);
+  };
+
+  const clearAllData = () => {
+    const confirmClear = window.confirm(
+      'Are you sure you want to clear all players and game history? This action cannot be undone.'
+    );
+    
+    if (confirmClear) {
+      setAppState({
+        players: [],
+        teams: [],
+        gameHistory: [],
+        currentScreen: 'lobby'
+      });
+      setSelectedPlayers([]);
+      localStorage.removeItem('badmintonTeamSelector');
+    }
   };
 
   const navigateToScreen = (screen: AppState['currentScreen']) => {
@@ -556,7 +573,25 @@ function App() {
         <Title>
           🏸 Badminton Team Selector
         </Title>
-        {renderNavigation()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {renderNavigation()}
+          {appState.players.length > 0 && (
+            <SecondaryButton
+              onClick={clearAllData}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              style={{ 
+                backgroundColor: '#ff6b6b', 
+                color: 'white',
+                padding: '0.5rem 0.8rem',
+                fontSize: '0.8rem'
+              }}
+            >
+              <Trash2 size={16} style={{ marginRight: '0.3rem' }} />
+              Clear All
+            </SecondaryButton>
+          )}
+        </div>
       </Header>
 
       <MainContent>
