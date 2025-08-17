@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Zap, Users, UserCheck, Trash2, Menu, X } from 'lucide-react';
-import { Player, Team, GameResult, AppState, SkillLevel } from './types';
-import { generateBalancedTeams, calculateTeamStrength } from './utils/gameLogic';
+import { Shuffle, Zap, Users, UserCheck, Trash2, Menu, X, Trophy, TrendingUp } from 'lucide-react';
+import { Player, Team, GameResult, AppState } from './types';
+import { ActivePlayerService as PlayerService } from './services/ApiService';
 import AddPlayerForm from './components/AddPlayerForm';
 import PlayerCardComponent from './components/PlayerCard';
 import TeamDisplay from './components/TeamDisplay';
 import GameResults from './components/GameResults';
+import PlayerProfileModal from './components/PlayerProfileModal';
+import LeaderboardView from './components/LeaderboardView';
 import {
   AppContainer,
   Header,
@@ -38,131 +40,78 @@ function App() {
   });
 
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
+  const [selectedPlayerProfile, setSelectedPlayerProfile] = useState<Player | null>(null);
   const [isGeneratingTeams, setIsGeneratingTeams] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [teamGenerationResult, setTeamGenerationResult] = useState<any>(null);
 
-  // Load data from localStorage on component mount
+  // Load players on component mount
   useEffect(() => {
-    const savedData = localStorage.getItem('badmintonTeamSelector');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        setAppState(prevState => ({
-          ...prevState,
-          players: parsedData.players || [],
-          gameHistory: parsedData.gameHistory || []
-        }));
-      } catch (error) {
-        console.error('Error loading saved data:', error);
-      }
-    }
+    const initializeApp = async () => {
+      await testBackendConnection();
+      await loadPlayers();
+    };
+    
+    initializeApp();
   }, []);
 
-  // Save data to localStorage whenever players or gameHistory changes
-  useEffect(() => {
-    const dataToSave = {
-      players: appState.players,
-      gameHistory: appState.gameHistory
-    };
-    localStorage.setItem('badmintonTeamSelector', JSON.stringify(dataToSave));
-  }, [appState.players, appState.gameHistory]);
+  const loadPlayers = async () => {
+    try {
+      setLoading(true);
+      const players = await PlayerService.getAllPlayers({
+        sortBy: 'totalMatches',
+        sortOrder: 'asc',
+        limit: 50
+      });
+      
+      setAppState(prevState => ({
+        ...prevState,
+        players
+      }));
+    } catch (error) {
+      console.error('Error loading players:', error);
+      setError('Failed to load players. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const addDemoPlayers = () => {
-    const demoPlayers: Player[] = [
-      {
-        id: 'demo1',
-        name: 'Alice Chen',
-        skillLevel: SkillLevel.INTERMEDIATE,
-        winRate: 0.65,
-        gamesPlayed: 0, // New player - should be prioritized
-        avatar: '🏸',
-        color: '#FF6B6B'
-      },
-      {
-        id: 'demo2',
-        name: 'Bob Smith',
-        skillLevel: SkillLevel.BEGINNER,
-        winRate: 0.45,
-        gamesPlayed: 3,
-        avatar: '⭐',
-        color: '#4ECDC4'
-      },
-      {
-        id: 'demo3',
-        name: 'Carol Wong',
-        skillLevel: SkillLevel.PRO,
-        winRate: 0.78,
-        gamesPlayed: 0, // New player - should be prioritized
-        avatar: '🔥',
-        color: '#45B7D1'
-      },
-      {
-        id: 'demo4',
-        name: 'David Kumar',
-        skillLevel: SkillLevel.INTERMEDIATE,
-        winRate: 0.52,
-        gamesPlayed: 5,
-        avatar: '💪',
-        color: '#96CEB4'
-      },
-      {
-        id: 'demo5',
-        name: 'Eva Martinez',
-        skillLevel: SkillLevel.BEGINNER,
-        winRate: 0.38,
-        gamesPlayed: 0, // New player - should be prioritized
-        avatar: '🎯',
-        color: '#FECA57'
-      },
-      {
-        id: 'demo6',
-        name: 'Frank Liu',
-        skillLevel: SkillLevel.PRO,
-        winRate: 0.82,
-        gamesPlayed: 7,
-        avatar: '🚀',
-        color: '#FF9FF3'
-      },
-      {
-        id: 'demo7',
-        name: 'Grace Kim',
-        skillLevel: SkillLevel.INTERMEDIATE,
-        winRate: 0.58,
-        gamesPlayed: 0, // New player - should be prioritized
-        avatar: '🌟',
-        color: '#54A0FF'
-      },
-      {
-        id: 'demo8',
-        name: 'Henry Park',
-        skillLevel: SkillLevel.BEGINNER,
-        winRate: 0.42,
-        gamesPlayed: 2,
-        avatar: '⚡',
-        color: '#5F27CD'
+  const addPlayer = async (newPlayerData: Omit<Player, '_id' | 'playerId' | 'createdAt' | 'updatedAt' | 'lastActiveAt'>) => {
+    try {
+      setLoading(true);
+      const newPlayer = await PlayerService.createPlayer(newPlayerData);
+      
+      setAppState(prevState => ({
+        ...prevState,
+        players: [...prevState.players, newPlayer]
+      }));
+    } catch (error) {
+      console.error('Error adding player:', error);
+      setError('Failed to add player. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testBackendConnection = async () => {
+    try {
+      const isConnected = await PlayerService.testConnection();
+      if (!isConnected) {
+        setError('❌ Cannot connect to backend server. Please make sure your backend is running on port 3001.');
+      } else {
+        console.log('✅ Backend connection successful');
       }
-    ];
-
-    setAppState(prevState => ({
-      ...prevState,
-      players: [...prevState.players, ...demoPlayers.filter(demo => 
-        !prevState.players.some(existing => existing.id === demo.id)
-      )]
-    }));
+    } catch (error) {
+      setError('❌ Backend server is not running. Please start your backend server first.');
+    }
   };
-
-  const addPlayer = (newPlayer: Player) => {
-    setAppState(prevState => ({
-      ...prevState,
-      players: [...prevState.players, newPlayer]
-    }));
-  };
-
   const togglePlayerSelection = (player: Player) => {
     setSelectedPlayers(prev => {
-      const isSelected = prev.some(p => p.id === player.id);
+      const isSelected = prev.some(p => p.playerId === player.playerId);
       if (isSelected) {
-        return prev.filter(p => p.id !== player.id);
+        return prev.filter(p => p.playerId !== player.playerId);
       } else {
         return [...prev, player];
       }
@@ -170,45 +119,39 @@ function App() {
   };
 
   const generateTeams = async () => {
-    // Auto-select players if none are manually selected
-    let playersToUse: Player[] = selectedPlayers;
-    
-    if (selectedPlayers.length === 0 && appState.players.length >= 4) {
-      // Auto-select players based on games played (prioritize those who haven't played)
-      playersToUse = appState.players
-        .sort((a, b) => {
-          const gamesDiff = a.gamesPlayed - b.gamesPlayed;
-          if (gamesDiff !== 0) return gamesDiff;
-          return Math.random() - 0.5; // Randomize if same games played
-        })
-        .slice(0, 4);
-    } else if (selectedPlayers.length < 4) {
-      alert('Please select at least 4 players to generate teams, or let the app auto-select players');
-      return;
-    }
-
-    setIsGeneratingTeams(true);
-    
-    // Add some delay for animation effect
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     try {
-      const [team1Players, team2Players] = generateBalancedTeams(playersToUse, appState.players);
+      setIsGeneratingTeams(true);
       
+      // Add some delay for animation effect
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const selectedPlayerIds = selectedPlayers.length >= 4 
+        ? selectedPlayers.map(p => p.playerId)
+        : undefined;
+
+      const result = await PlayerService.generateOptimalTeams(selectedPlayerIds, {
+        prioritizeNewPlayers: true,
+        maxEloDifference: 200,
+        avoidRecentOpponents: true,
+        balanceThreshold: 70
+      });
+
+      setTeamGenerationResult(result);
+
       const team1: Team = {
         id: 'team1',
-        players: team1Players,
+        players: result.team1,
         name: 'Team 1',
-        averageSkillLevel: calculateTeamStrength(team1Players),
-        combinedWinRate: team1Players.reduce((sum, p) => sum + p.winRate, 0) / team1Players.length
+        averageSkillLevel: result.team1.reduce((sum: number, p: Player) => sum + p.currentElo, 0) / result.team1.length,
+        combinedWinRate: result.team1.reduce((sum: number, p: Player) => sum + p.stats.winRate, 0) / result.team1.length
       };
 
       const team2: Team = {
         id: 'team2',
-        players: team2Players,
+        players: result.team2,
         name: 'Team 2',
-        averageSkillLevel: calculateTeamStrength(team2Players),
-        combinedWinRate: team2Players.reduce((sum, p) => sum + p.winRate, 0) / team2Players.length
+        averageSkillLevel: result.team2.reduce((sum: number, p: Player) => sum + p.currentElo, 0) / result.team2.length,
+        combinedWinRate: result.team2.reduce((sum: number, p: Player) => sum + p.stats.winRate, 0) / result.team2.length
       };
 
       setAppState(prevState => ({
@@ -217,45 +160,52 @@ function App() {
         currentScreen: 'teams'
       }));
     } catch (error) {
-      alert('Error generating teams: ' + (error as Error).message);
+      console.error('Error generating teams:', error);
+      setError('Failed to generate teams. Please try again.');
     } finally {
       setIsGeneratingTeams(false);
     }
   };
 
-  const updatePlayerStats = (gameResult: GameResult) => {
-    setAppState(prevState => {
-      const updatedPlayers = prevState.players.map(player => {
-        const isInGame = gameResult.playersInvolved.some(p => p.id === player.id);
-        if (!isInGame) return player;
-
-        const isWinner = gameResult.winner.players.some(p => p.id === player.id);
-        const newGamesPlayed = player.gamesPlayed + 1;
-        const currentWins = Math.round(player.winRate * player.gamesPlayed);
-        const newWins = currentWins + (isWinner ? 1 : 0);
-        const newWinRate = newWins / newGamesPlayed;
-
-        return {
-          ...player,
-          gamesPlayed: newGamesPlayed,
-          winRate: newWinRate
-        };
-      });
-
-      return {
-        ...prevState,
-        players: updatedPlayers,
-        gameHistory: [...prevState.gameHistory, gameResult]
+  const handleGameComplete = async (result: GameResult) => {
+    try {
+      setLoading(true);
+      
+      const matchResult = {
+        matchId: `match_${Date.now()}`,
+        date: new Date(),
+        team1: {
+          player1Id: result.winner.players[0]?.playerId || '',
+          player2Id: result.winner.players[1]?.playerId
+        },
+        team2: {
+          player1Id: result.loser.players[0]?.playerId || '',
+          player2Id: result.loser.players[1]?.playerId
+        },
+        score: {
+          team1: result.winner.id === 'team1' ? result.winnerScore : result.loserScore,
+          team2: result.winner.id === 'team1' ? result.loserScore : result.winnerScore
+        },
+        matchType: 'DOUBLES' as const,
+        duration: 30 // Default 30 minutes, could be user input
       };
-    });
-  };
 
-  const handleGameComplete = (result: GameResult) => {
-    updatePlayerStats(result);
-    setAppState(prevState => ({
-      ...prevState,
-      currentScreen: 'results'
-    }));
+      await PlayerService.recordMatchResult(matchResult);
+      
+      // Reload players to get updated stats
+      await loadPlayers();
+      
+      setAppState(prevState => ({
+        ...prevState,
+        currentScreen: 'results',
+        gameHistory: [...prevState.gameHistory, result]
+      }));
+    } catch (error) {
+      console.error('Error recording game result:', error);
+      setError('Failed to record game result. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetToLobby = () => {
@@ -265,23 +215,7 @@ function App() {
       teams: []
     }));
     setSelectedPlayers([]);
-  };
-
-  const clearAllData = () => {
-    const confirmClear = window.confirm(
-      'Are you sure you want to clear all players and game history? This action cannot be undone.'
-    );
-    
-    if (confirmClear) {
-      setAppState({
-        players: [],
-        teams: [],
-        gameHistory: [],
-        currentScreen: 'lobby'
-      });
-      setSelectedPlayers([]);
-      localStorage.removeItem('badmintonTeamSelector');
-    }
+    setTeamGenerationResult(null);
   };
 
   const navigateToScreen = (screen: AppState['currentScreen']) => {
@@ -289,7 +223,17 @@ function App() {
       ...prevState,
       currentScreen: screen
     }));
-    setIsMobileMenuOpen(false); // Close mobile menu when navigating
+    setIsMobileMenuOpen(false);
+  };
+
+  const openPlayerProfile = (player: Player) => {
+    setSelectedPlayerProfile(player);
+    navigateToScreen('profile');
+  };
+
+  const closePlayerProfile = () => {
+    setSelectedPlayerProfile(null);
+    navigateToScreen('lobby');
   };
 
   const renderNavigation = () => (
@@ -315,10 +259,19 @@ function App() {
         )}
         
         <NavButton 
+          $active={appState.currentScreen === 'leaderboard'}
+          onClick={() => navigateToScreen('leaderboard')}
+        >
+          <Trophy size={16} style={{ marginRight: '0.5rem' }} />
+          Leaderboard
+        </NavButton>
+        
+        <NavButton 
           $active={appState.currentScreen === 'history'}
           onClick={() => navigateToScreen('history')}
         >
-          📊 Game History ({appState.gameHistory.length})
+          <TrendingUp size={16} style={{ marginRight: '0.5rem' }} />
+          History
         </NavButton>
       </NavContainer>
 
@@ -366,27 +319,20 @@ function App() {
         )}
         
         <MobileNavButton 
+          $active={appState.currentScreen === 'leaderboard'}
+          onClick={() => navigateToScreen('leaderboard')}
+        >
+          <Trophy size={16} style={{ marginRight: '0.5rem' }} />
+          Leaderboard
+        </MobileNavButton>
+        
+        <MobileNavButton 
           $active={appState.currentScreen === 'history'}
           onClick={() => navigateToScreen('history')}
         >
-          📊 Game History ({appState.gameHistory.length})
+          <TrendingUp size={16} style={{ marginRight: '0.5rem' }} />
+          History
         </MobileNavButton>
-
-        {appState.players.length > 0 && (
-          <MobileNavButton 
-            $active={false}
-            onClick={clearAllData}
-            style={{ 
-              backgroundColor: '#ff6b6b', 
-              borderColor: '#ff6b6b',
-              color: 'white',
-              marginTop: '2rem'
-            }}
-          >
-            <Trash2 size={16} style={{ marginRight: '0.5rem' }} />
-            Clear All Data
-          </MobileNavButton>
-        )}
       </MobileNavContainer>
     </>
   );
@@ -395,19 +341,14 @@ function App() {
     <>
       <AddPlayerForm onAddPlayer={addPlayer} existingPlayers={appState.players} />
       
-      {appState.players.length === 0 ? (
+      {loading ? (
+        <EmptyState>
+          <div style={{ color: '#fff' }}>Loading players...</div>
+        </EmptyState>
+      ) : appState.players.length === 0 ? (
         <EmptyState>
           <h3 style={{ color: '#fff' }}>🏸 Welcome to Badminton Team Selector!</h3>
-          <p style={{ color: '#fff' }}>Add some players to get started with balanced team generation.</p>
-          <div style={{ marginTop: '1.5rem' }}>
-            <SecondaryButton
-              onClick={addDemoPlayers}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              ✨ Add Demo Players
-            </SecondaryButton>
-          </div>
+          <p style={{ color: '#fff' }}>Add some players to get started with ELO-based balanced team generation.</p>
         </EmptyState>
       ) : (
         <>
@@ -461,25 +402,27 @@ function App() {
                 border: '2px solid #FFC107'
               }}>
                 <p style={{ margin: 0, color: '#333', fontSize: '0.9rem' }}>
-                  <strong>Smart Auto-Selection Mode:</strong> Teams will be generated automatically, prioritizing players with fewer games played
+                  <strong>Smart Auto-Selection Mode:</strong> Advanced ELO-based matchmaking will prioritize players with fewer games and balanced skill distribution
                 </p>
               </div>
             )}
 
             <div style={{ fontSize: '0.9rem', color: '#fff', marginBottom: '1rem' }}>
-              Click players to manually select them, or use auto-selection for balanced matchmaking based on game history.
+              Click players to manually select them, or use auto-selection for optimal ELO-balanced matchmaking.
             </div>
           </div>
 
           <PlayersGrid>
             {appState.players
-              .sort((a, b) => a.gamesPlayed - b.gamesPlayed) // Show players with fewer games first
+              .sort((a, b) => a.stats.totalMatches - b.stats.totalMatches)
               .map(player => (
               <PlayerCardComponent
-                key={player.id}
+                key={player.playerId}
                 player={player}
-                isSelected={selectedPlayers.some(p => p.id === player.id)}
+                isSelected={selectedPlayers.some(p => p.playerId === player.playerId)}
                 onSelect={togglePlayerSelection}
+                onViewProfile={() => openPlayerProfile(player)}
+                showElo={true}
               />
             ))}
           </PlayersGrid>
@@ -493,8 +436,26 @@ function App() {
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
         <h2 style={{ color: '#333', marginBottom: '1rem' }}>
           <Zap size={28} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Teams Generated!
+          Optimal Teams Generated!
         </h2>
+        
+        {teamGenerationResult && (
+          <div style={{ 
+            background: 'rgba(76, 175, 80, 0.1)', 
+            padding: '1rem', 
+            borderRadius: '10px',
+            marginBottom: '1rem',
+            border: '1px solid #4CAF50'
+          }}>
+            <div style={{ color: '#333', fontSize: '0.9rem' }}>
+              <div><strong>Balance Score:</strong> {teamGenerationResult.balanceScore}/100</div>
+              <div><strong>Confidence:</strong> {teamGenerationResult.confidence}/100</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+                <strong>Reasoning:</strong> {teamGenerationResult.reasoning.join(', ')}
+              </div>
+            </div>
+          </div>
+        )}
         
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <SecondaryButton
@@ -522,6 +483,7 @@ function App() {
             key={team.id}
             team={team}
             teamNumber={index + 1}
+            showEloInfo={true}
           />
         ))}
       </TeamsContainer>
@@ -548,9 +510,31 @@ function App() {
     );
   };
 
+  const renderLeaderboard = () => (
+    <LeaderboardView />
+  );
+
+  const renderPlayerProfile = () => {
+    if (!appState.selectedPlayerProfile) {
+      return (
+        <EmptyState>
+          <h3>No player selected</h3>
+          <p>Select a player to view their profile.</p>
+        </EmptyState>
+      );
+    }
+
+    return (
+      <PlayerProfileModal
+        player={appState.selectedPlayerProfile}
+        onClose={() => navigateToScreen('lobby')}
+      />
+    );
+  };
+
   const renderHistory = () => (
     <Card>
-      <h3 style={{ marginBottom: '2rem', color: '#333', zIndex: 1 }}>Game History</h3>
+      <h3 style={{ marginBottom: '2rem', color: '#333' }}>Game History</h3>
 
       {appState.gameHistory.length === 0 ? (
         <EmptyState>
@@ -595,7 +579,7 @@ function App() {
                     color: '#666',
                     textAlign: 'right'
                   }}>
-                    <div>{game.playersInvolved.length} players</div>
+                    <div>Score: {game.winnerScore} - {game.loserScore}</div>
                     <div style={{ fontSize: '0.7rem', color: '#999' }}>
                       Game #{appState.gameHistory.length - index}
                     </div>
@@ -609,6 +593,32 @@ function App() {
     </Card>
   );
 
+  if (error) {
+    return (
+      <AppContainer>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          color: '#ff6b6b',
+          textAlign: 'center'
+        }}>
+          <div>
+            <h2>Error</h2>
+            <p>{error}</p>
+            <button onClick={() => {
+              setError(null);
+              loadPlayers();
+            }}>
+              Retry
+            </button>
+          </div>
+        </div>
+      </AppContainer>
+    );
+  }
+
   if (isGeneratingTeams) {
     return (
       <AppContainer>
@@ -618,7 +628,7 @@ function App() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            Generating Balanced Teams...
+            Generating ELO-Balanced Teams...
           </GeneratingText>
           
           <ShuffleAnimation>
@@ -636,7 +646,7 @@ function App() {
             transition={{ delay: 0.5, duration: 0.5 }}
             style={{ color: '#666', fontSize: '1.1rem' }}
           >
-            Analyzing skill levels and win rates for optimal balance...
+            Analyzing ELO ratings, match history, and partnerships for optimal balance...
           </motion.p>
         </TeamGenerationContainer>
       </AppContainer>
@@ -647,31 +657,13 @@ function App() {
     <AppContainer>
       <Header>
         <Title>
-          🏸 Badminton Team Selector
+          🏸 Badminton Team Selector Pro 1.0
         </Title>
         
-        {/* Desktop Navigation and Clear Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {renderNavigation()}
-          {appState.players.length > 0 && (
-            <SecondaryButton
-              onClick={clearAllData}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              style={{ 
-                backgroundColor: '#ff6b6b', 
-                color: 'white',
-                padding: '0.5rem 0.8rem',
-                fontSize: '0.8rem'
-              }}
-            >
-              <Trash2 size={16} style={{ marginRight: '0.3rem' }} />
-              Clear All
-            </SecondaryButton>
-          )}
         </div>
 
-        {/* Mobile Hamburger Button */}
         <HamburgerButton onClick={() => setIsMobileMenuOpen(true)}>
           <Menu size={24} />
         </HamburgerButton>
@@ -712,6 +704,30 @@ function App() {
               transition={{ duration: 0.3 }}
             >
               {renderResults()}
+            </motion.div>
+          )}
+
+          {appState.currentScreen === 'leaderboard' && (
+            <motion.div
+              key="leaderboard"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderLeaderboard()}
+            </motion.div>
+          )}
+
+          {appState.currentScreen === 'profile' && (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderPlayerProfile()}
             </motion.div>
           )}
 

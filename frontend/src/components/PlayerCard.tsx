@@ -17,21 +17,43 @@ interface PlayerCardComponentProps {
   player: Player;
   isSelected?: boolean;
   onSelect?: (player: Player) => void;
+  onViewProfile?: (player: Player) => void;
   showDemotionWarning?: boolean;
+  showElo?: boolean;
 }
 
 const PlayerCardComponent: React.FC<PlayerCardComponentProps> = ({
   player,
   isSelected = false,
   onSelect,
-  showDemotionWarning = true
+  onViewProfile,
+  showDemotionWarning = true,
+  showElo = false
 }) => {
   const skillColor = getSkillLevelColor(player.skillLevel);
   const needsDemotion = shouldPlayerLevelDown(player);
 
   const handleClick = () => {
-    if (onSelect) {
-      onSelect(player);
+    if (onSelect) onSelect(player);
+  };
+
+  const handleViewProfile = async () => {
+    if (onViewProfile) onViewProfile(player);
+
+    // 🔹 Example API call sending minimal data (only playerId)
+    try {
+      const res = await fetch('http://localhost:3000/api/player/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: player.id })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to record player view: ${res.statusText}`);
+      }
+      console.log(`✅ View recorded for player ${player.name}`);
+    } catch (err) {
+      console.error('❌ Error recording player view:', err);
     }
   };
 
@@ -47,40 +69,55 @@ const PlayerCardComponent: React.FC<PlayerCardComponentProps> = ({
       transition={{ duration: 0.3 }}
     >
       <PlayerInfo>
-        <PlayerAvatar $color={player.color}>
+        <PlayerAvatar
+          $color={player.color}
+          onClick={handleViewProfile}
+          style={{ cursor: onViewProfile ? 'pointer' : 'default' }}
+        >
           {player.avatar}
         </PlayerAvatar>
-        
+
         <PlayerDetails>
           <PlayerName>
             {player.name}
             {needsDemotion && showDemotionWarning && (
               <span title="May need to level down">
-                <AlertCircle 
-                  size={20} 
-                  color="#FF6B6B" 
+                <AlertCircle
+                  size={20}
+                  color="#FF6B6B"
                   style={{ marginLeft: '0.5rem' }}
                 />
               </span>
             )}
           </PlayerName>
-          
+
           <div>
-            <SkillBadge $color={skillColor}>
-              {player.skillLevel}
-            </SkillBadge>
-            
-            <span style={{ 
-              fontSize: '0.9rem', 
-              color: player.gamesPlayed === 0 ? '#4CAF50' : '#666',
-              fontWeight: player.gamesPlayed === 0 ? 'bold' : 'normal'
-            }}>
+            <SkillBadge $color={skillColor}>{player.skillLevel}</SkillBadge>
+
+            <span
+              style={{
+                fontSize: '0.9rem',
+                color: player.gamesPlayed === 0 ? '#4CAF50' : '#666',
+                fontWeight: player.gamesPlayed === 0 ? 'bold' : 'normal'
+              }}
+            >
               Games: {player.gamesPlayed}
               {player.gamesPlayed === 0 && ' 🆕'}
             </span>
+            {showElo && (
+              <span
+                style={{
+                  marginLeft: '0.5rem',
+                  fontSize: '0.85rem',
+                  color: '#555'
+                }}
+              >
+                Elo: {player.currentElo}
+              </span>
+            )}
           </div>
         </PlayerDetails>
-        
+
         <WinRateDisplay>
           <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
             {(player.winRate * 100).toFixed(1)}%
@@ -88,7 +125,7 @@ const PlayerCardComponent: React.FC<PlayerCardComponentProps> = ({
           <div>Win Rate</div>
         </WinRateDisplay>
       </PlayerInfo>
-      
+
       {needsDemotion && showDemotionWarning && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
@@ -103,7 +140,8 @@ const PlayerCardComponent: React.FC<PlayerCardComponentProps> = ({
             color: '#E65100'
           }}
         >
-          <strong>Consider leveling down:</strong> Win rate below threshold for {player.skillLevel} level
+          <strong>Consider leveling down:</strong> Win rate below threshold for{' '}
+          {player.skillLevel} level
         </motion.div>
       )}
     </PlayerCard>

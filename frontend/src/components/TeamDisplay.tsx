@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users } from 'lucide-react';
-import { Team } from '../types';
+import { Team, SkillLevel } from '../types';
 import { calculateTeamStrength } from '../utils/gameLogic';
 import {
   TeamCard,
@@ -15,9 +15,10 @@ interface TeamDisplayProps {
   team: Team;
   teamNumber: number;
   onPlayerClick?: (playerId: string) => void;
+  showEloInfo?: boolean;
 }
 
-const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, teamNumber, onPlayerClick }) => {
+const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, teamNumber, onPlayerClick, showEloInfo = false }) => {
   const teamStrength = calculateTeamStrength(team.players);
 
   return (
@@ -45,7 +46,7 @@ const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, teamNumber, onPlayerCli
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 + 0.5 }}
-            onClick={() => onPlayerClick?.(player.id)}
+            onClick={() => player.id && onPlayerClick?.(player.id)}
             style={{ cursor: onPlayerClick ? 'pointer' : 'default' }}
           >
             <PlayerInfo>
@@ -61,12 +62,17 @@ const TeamDisplay: React.FC<TeamDisplayProps> = ({ team, teamNumber, onPlayerCli
                 <div>
                   <SkillBadge 
                     $color={
-                      player.skillLevel === 'Beginner' ? '#4CAF50' :
-                      player.skillLevel === 'Intermediate' ? '#FF9800' : '#F44336'
+                      player.skillLevel === SkillLevel.BEGINNER ? '#4CAF50' :
+                      player.skillLevel === SkillLevel.INTERMEDIATE ? '#FF9800' : '#F44336'
                     }
                   >
                     {player.skillLevel}
                   </SkillBadge>
+                  {showEloInfo && (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: '#555' }}>
+                      Elo: {player.currentElo}
+                    </span>
+                  )}
                 </div>
               </div>
               
